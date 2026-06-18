@@ -1,0 +1,30 @@
+# === 個人情報・秘密情報 (絶対にコミットしない) ===
+.env
+*.local.txt
+prompts/initial_prompt.local.txt
+
+# === 入力音声 ===
+*.m4a
+*.mp3
+*.wav
+*.mp4
+*.aac
+*.flac
+
+# === 文字起こし・話者分離の出力 ===
+out/
+*_segments.json
+*_segments_speaker.json
+*_segments_aligned.json
+*_transcript.txt
+*_transcript_speaker.txt
+
+# === モデルキャッシュ ===
+hf-cache/
+.cache/
+
+# === Jupyter / Python ===
+.ipynb_checkpoints/
+__pycache__/
+*.pyc
+.venv/
