@@ -1,0 +1,14 @@
+{
+  "_comment": "watch-list 設定。name=PyPIパッケージ名, current=現在運用中のバージョン(分かる範囲。container提供で不明なら null)。latest>current のとき更新ありとして通知します。current=null は情報表示のみ。",
+  "scan_notebooks": true,
+  "_scan_notebooks_comment": "true の場合、リポジトリ内の *.ipynb の 'pip install pkg==x.y.z' のピン留めを自動で取り込み、currentに反映します。",
+  "packages": [
+    { "name": "transformers",    "current": null,    "note": "transformers.pipeline (whisper-large-v3) で使用。v5 はメジャー変更あり。不明: コンテナ提供（repo にバージョン記載なし）" },
+    { "name": "ctranslate2",     "current": "4.4.0", "note": "根拠: kikoyu.ipynb 本文(落とし穴表/4節/4'節/トラブルシュート) と docs に『CTranslate2 4.4.0』と明記。CUDA13非互換の4.4.0で停止中、CUDA13対応wheelが出れば faster-whisper 復活可" },
+    { "name": "pyannote.audio",  "current": null,    "note": "v4 は API 変更あり。不明: コンテナ提供（記載は『モデル』speaker-diarization-3.1 のみで pyannote.audio パッケージ版ではない）" },
+    { "name": "whisperx",        "current": null,    "note": "DGX Spark 構成で使用。kikoyu.ipynb に『whisperx 3.8 系』とあるがパッチ版は未記載のため null。不明: コンテナ提供" },
+    { "name": "faster-whisper",  "current": null,    "note": "休止中パス（CT2待ち）。不明: コンテナ提供（バージョンのピン/記載なし）" },
+    { "name": "torch",           "current": null,    "note": "コンテナ/NGC 管理（NGC PyTorch 25.01・notebook内では torch.__version__ を 2.6.0 に偽装、実体は 2.6.0a0+...）。情報表示のみ" },
+    { "name": "librosa",         "current": null,    "note": "前処理。情報表示のみ。不明: コンテナ提供（バージョン記載なし）" }
+  ]
+}
