@@ -28,3 +28,6 @@ hf-cache/
 __pycache__/
 *.pyc
 .venv/
+
+# === Claude Code (個人設定・コミットしない) ===
+.claude/
