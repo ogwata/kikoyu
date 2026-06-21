@@ -100,13 +100,125 @@ def scan_notebook_pins():
     return pins
 
 
+# ----------------------------- CUDA 13 互換ヒント -----------------------------
+# 注意: ここで出すのは best-effort の「推定シグナル」であって断定ではない。
+# 確定には実機 (DGX Spark aarch64 + CUDA 13 + sm_121 コンテナ) での実行が必要。
+NVIDIA_CU_RE = re.compile(r"nvidia-[a-z0-9.\-]*-cu(\d+)", re.I)
+CUDA13_RE = re.compile(r"cuda[ \-]?13", re.I)
+
+
+def cuda_major_from_requires(requires_dist):
+    """requires_dist (list[str]) から nvidia-*-cuNN 依存の CUDA メジャーを返す。
+    cu13 を優先、無ければ cu12 等。該当なし/Noneは None。"""
+    if not requires_dist:
+        return None
+    majors = set()
+    for req in requires_dist:
+        for m in NVIDIA_CU_RE.findall(req or ""):
+            majors.add(m)
+    if not majors:
+        return None
+    if "13" in majors:
+        return "13"
+    # それ以外は数値的に最大のものを返す (通常は単一)
+    return max(majors, key=lambda x: int(x))
+
+
+def has_aarch64_wheel(urls):
+    """PyPI の配布ファイル一覧 (list[dict]) に linux aarch64 wheel があるか。
+    CPU/GPU 別までは判定できない点に注意。"""
+    if not urls:
+        return False
+    for u in urls:
+        fn = (u or {}).get("filename", "")
+        if fn.endswith(".whl") and "aarch64" in fn:
+            return True
+    return False
+
+
+def grep_cuda13(text):
+    """テキストから 'CUDA 13' 系の言及行を抽出して返す (無ければ空リスト)。"""
+    if not text:
+        return []
+    return [ln.strip() for ln in text.splitlines() if CUDA13_RE.search(ln)]
+
+
+def pypi_release_json(pkg, version):
+    """PyPI JSON API から特定バージョンのリリース情報を返す。失敗時 None。"""
+    url = "https://pypi.org/pypi/%s/%s/json" % (pkg.lower().replace("_", "-"), version)
+    try:
+        req = urllib.request.Request(url, headers=UA)
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read().decode("utf-8", "replace"))
+    except Exception as e:
+        print("WARN: %s pypi-json failed: %s" % (pkg, e))
+        return None
+
+
+def fetch_text(url):
+    """任意 URL のテキストを取得。失敗時 None。"""
+    try:
+        req = urllib.request.Request(url, headers=UA)
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return r.read().decode("utf-8", "replace")
+    except Exception as e:
+        print("WARN: changelog fetch failed (%s): %s" % (url, e))
+        return None
+
+
+def cuda13_hint(p, latest):
+    """1 パッケージの CUDA13 互換ヒントを dict で返す。"""
+    name = p["name"]
+    wheel_label, aarch64_label = "取得失敗", "—"
+    cuda_major = None
+    if latest:
+        data = pypi_release_json(name, latest)
+        if data is not None:
+            info = data.get("info", {}) or {}
+            cuda_major = cuda_major_from_requires(info.get("requires_dist"))
+            if cuda_major == "13":
+                wheel_label = "cu13依存検出"
+            elif cuda_major:
+                wheel_label = "cu%s依存" % cuda_major
+            else:
+                wheel_label = "cu依存なし"
+            aarch64_label = "あり" if has_aarch64_wheel(data.get("urls")) else "なし"
+
+    snippets, cl_label = [], "—"
+    changelog_url = p.get("changelog_url")
+    if changelog_url:
+        text = fetch_text(changelog_url)
+        if text is None:
+            cl_label = "取得失敗"
+        else:
+            snippets = grep_cuda13(text)
+            cl_label = ("言及あり(%d)" % len(snippets)) if snippets else "言及なし"
+
+    if cuda_major == "13":
+        verdict = "🟢 cu13依存検出"
+    elif snippets:
+        verdict = "🟡 CHANGELOGに言及あり"
+    else:
+        verdict = "🔴 シグナルなし（CUDA13対応の根拠なし）"
+
+    return {
+        "name": name,
+        "latest": latest or "—",
+        "wheel": wheel_label,
+        "aarch64": aarch64_label,
+        "changelog": cl_label,
+        "verdict": verdict,
+        "snippets": snippets[:5],  # 表示は最大5行に制限
+    }
+
+
 # ----------------------------- 集計 -----------------------------
 def build_report():
     cfg = json.load(open(CONFIG_PATH, encoding="utf-8"))
     pkgs = cfg.get("packages", [])
     pins = scan_notebook_pins() if cfg.get("scan_notebooks") else {}
 
-    updates, info = [], []
+    updates, info, cuda13 = [], [], []
     for p in pkgs:
         name = p["name"]
         key = name.lower().replace("_", "-")
@@ -115,6 +227,8 @@ def build_report():
             current = pins[key]
         latest = latest_stable_from_pypi(name)
         note = p.get("note", "")
+        if p.get("cuda13_watch"):  # オプトインしたものだけ CUDA13 ヒントを計算
+            cuda13.append(cuda13_hint(p, latest))
         if latest is None:
             info.append((name, current or "—", "取得失敗", "", note))
             continue
@@ -125,7 +239,7 @@ def build_report():
                 info.append((name, current, latest, "最新", note))
         else:
             info.append((name, current or "—", latest, "参考", note))
-    return updates, info
+    return updates, info, cuda13
 
 
 def md_table(rows, header):
@@ -135,7 +249,27 @@ def md_table(rows, header):
     return "\n".join(out)
 
 
-def build_issue_body(updates, info):
+def build_cuda13_section(cuda13):
+    """CUDA13 互換ヒントの専用セクションを返す (対象が無ければ空文字)。"""
+    if not cuda13:
+        return ""
+    parts = [
+        "\n## 🧪 CUDA 13 互換ヒント（自動推定・要実機検証）\n",
+        "> CHANGELOG / wheel 依存メタデータからの推定で、断定ではありません。\n"
+        "> 確定には DGX Spark (aarch64 + CUDA 13 + sm_121) コンテナでの実行が必要です。\n",
+        md_table(
+            [(h["name"], "`%s`" % h["latest"], h["wheel"], h["aarch64"],
+              h["changelog"], h["verdict"]) for h in cuda13],
+            ["ライブラリ", "最新", "wheel依存", "aarch64 wheel", "CHANGELOG", "推定"]),
+    ]
+    for h in cuda13:
+        if h["snippets"]:
+            parts.append("\n**%s** CHANGELOG 該当行:" % h["name"])
+            parts.append("\n".join("> %s" % s for s in h["snippets"]))
+    return "\n".join(parts)
+
+
+def build_issue_body(updates, info, cuda13=None):
     import datetime
     now = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     parts = ["_最終チェック: %s（毎日自動更新）_\n" % now]
@@ -146,6 +280,9 @@ def build_issue_body(updates, info):
             ["ライブラリ", "現在", "最新", "更新", "備考"]))
     else:
         parts.append("## ✅ watch-list に新しい更新はありません\n")
+    section = build_cuda13_section(cuda13 or [])
+    if section:
+        parts.append(section)
     if info:
         parts.append("\n## 参考 / 情報\n")
         parts.append(md_table(
@@ -197,9 +334,9 @@ def main():
     token = os.environ["GITHUB_TOKEN"]
     repo = os.environ["GH_REPO"]
 
-    updates, info = build_report()
-    body = build_issue_body(updates, info)
-    print("updates:", len(updates), "info:", len(info))
+    updates, info, cuda13 = build_report()
+    body = build_issue_body(updates, info, cuda13)
+    print("updates:", len(updates), "info:", len(info), "cuda13:", len(cuda13))
 
     ensure_label(repo, token)
     existing = find_issue(repo, token)
