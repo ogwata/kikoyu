@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<title>kikoyu — ライブデモ スライド</title>
+<meta name="hz:slide-selector" content=".slide" />
+<meta name="hz:canvas-width" content="1920" />
+<meta name="hz:canvas-height" content="1080" />
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0e18;
+  --panel: #121a2c;
+  --panel-2: #0e1524;
+  --line: #243049;
+  --text: #eef2fa;
+  --muted: #93a0b8;
+  --faint: #5d6a85;
+  --mint: #57d6a0;
+  --amber: #f4a259;
+  --blue: #6cb6ff;
+  --sans: "Noto Sans JP", system-ui, "Hiragino Sans", sans-serif;
+  --mono: "JetBrains Mono", "SF Mono", Menlo, monospace;
+}
+
+body {
+  background: #04060c;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  padding: 28px;
+  font-family: var(--sans);
+}
+
+.slide {
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+  background:
+    radial-gradient(1200px 700px at 82% -8%, rgba(87,214,160,0.10), transparent 60%),
+    radial-gradient(900px 600px at 6% 108%, rgba(108,182,255,0.08), transparent 55%),
+    var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  padding: 96px 120px;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+}
+
+/* ---- shared chrome ---- */
+.topbar {
+  position: absolute;
+  top: 52px; left: 120px; right: 120px;
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--mono); font-size: 22px; color: var(--faint);
+  letter-spacing: 0.04em;
+}
+.topbar .brand { color: var(--muted); }
+.topbar .brand b { color: var(--mint); font-weight: 700; }
+.rule {
+  position: absolute; left: 120px; right: 120px; top: 96px;
+  height: 1px; background: linear-gradient(90deg, var(--line), transparent);
+}
+.pagenum { color: var(--faint); }
+.pagenum em { color: var(--text); font-style: normal; }
+
+.footer {
+  position: absolute; left: 120px; right: 120px; bottom: 52px;
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--mono); font-size: 19px; color: var(--faint);
+  letter-spacing: 0.03em;
+}
+
+.kicker {
+  font-family: var(--mono); font-size: 24px; font-weight: 600;
+  color: var(--mint); letter-spacing: 0.18em; text-transform: uppercase;
+  margin-bottom: 26px;
+}
+.title { font-size: 76px; font-weight: 900; line-height: 1.08; letter-spacing: -0.01em; }
+.title .hl { color: var(--mint); }
+.lead { font-size: 32px; color: var(--muted); line-height: 1.6; font-weight: 400; }
+.body { font-size: 28px; color: var(--muted); line-height: 1.7; }
+
+.content { position: relative; margin-top: 70px; height: 760px; }
+
+/* ---- cards / grid ---- */
+.grid { display: grid; gap: 30px; }
+.card {
+  background: linear-gradient(180deg, var(--panel), var(--panel-2));
+  border: 1px solid var(--line); border-radius: 18px; padding: 38px 40px;
+}
+.card h3 { font-size: 30px; font-weight: 700; margin-bottom: 16px; color: var(--text); }
+.card p { font-size: 25px; color: var(--muted); line-height: 1.6; }
+.card .ic { font-size: 34px; margin-bottom: 18px; display: block; }
+
+.tag {
+  display: inline-block; font-family: var(--mono); font-size: 21px; font-weight: 600;
+  padding: 7px 16px; border-radius: 999px; border: 1px solid var(--line);
+  color: var(--mint); background: rgba(87,214,160,0.08); letter-spacing: 0.03em;
+}
+.tag.amber { color: var(--amber); background: rgba(244,162,89,0.09); border-color: rgba(244,162,89,0.3); }
+.tag.blue  { color: var(--blue);  background: rgba(108,182,255,0.09); border-color: rgba(108,182,255,0.3); }
+
+/* ---- code / mono panel ---- */
+.code {
+  font-family: var(--mono); background: #070b14; border: 1px solid var(--line);
+  border-radius: 16px; padding: 34px 40px; font-size: 27px; line-height: 1.95;
+  color: var(--muted);
+}
+.code .c0 { color: var(--amber); font-weight: 600; }
+.code .c1 { color: var(--mint);  font-weight: 600; }
+.code .c2 { color: var(--blue);  font-weight: 600; }
+.code .ts { color: var(--faint); }
+.code .cm { color: var(--faint); font-style: italic; }
+.code .kw { color: var(--blue); }
+.code .fn { color: var(--mint); }
+
+/* ---- pipeline ---- */
+.pipe { display: flex; align-items: stretch; gap: 0; }
+.stage {
+  flex: 1; background: linear-gradient(180deg, var(--panel), var(--panel-2));
+  border: 1px solid var(--line); border-radius: 16px; padding: 32px 26px; text-align: center;
+}
+.stage .n { font-family: var(--mono); font-size: 19px; color: var(--mint); letter-spacing: 0.1em; }
+.stage h4 { font-size: 27px; font-weight: 700; margin: 14px 0 10px; }
+.stage small { font-size: 21px; color: var(--faint); font-family: var(--mono); }
+.arrow { display: flex; align-items: center; justify-content: center; width: 64px; color: var(--faint); font-size: 40px; flex: 0 0 64px; }
+
+ul.checks { list-style: none; }
+ul.checks li { font-size: 28px; color: var(--muted); line-height: 1.55; margin-bottom: 24px; padding-left: 46px; position: relative; }
+ul.checks li::before { content: "▸"; position: absolute; left: 8px; color: var(--mint); }
+ul.checks li b { color: var(--text); font-weight: 700; }
+ul.checks li .m { font-family: var(--mono); color: var(--amber); }
+
+/* ---- diarization timeline ---- */
+.timeline { display: flex; flex-direction: column; gap: 26px; }
+.track { display: flex; align-items: center; gap: 24px; }
+.track .lab { font-family: var(--mono); font-size: 24px; width: 220px; font-weight: 600; }
+.track .bars { flex: 1; height: 56px; position: relative; background: #070b14; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg { position: absolute; top: 0; bottom: 0; border-radius: 6px; }
+.s0 { background: rgba(244,162,89,0.85); } .lab.s0 { color: var(--amber); }
+.s1 { background: rgba(87,214,160,0.85); } .lab.s1 { color: var(--mint); }
+.s2 { background: rgba(108,182,255,0.85); } .lab.s2 { color: var(--blue); }
+.axis { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 18px; color: var(--faint); margin-left: 244px; margin-top: 4px; }
+
+/* ---- title slide waveform ---- */
+.wave { position: absolute; right: 120px; bottom: 150px; opacity: 0.9; }
+
+@media print {
+  body { background: #fff; padding: 0; gap: 0; display: block; }
+  .slide { box-shadow: none; page-break-after: always; }
+  .slide:last-child { page-break-after: auto; }
+}
+@page { size: 1920px 1080px; margin: 0; }
+</style>
+</head>
+<body>
+
+<!-- ============ SLIDE 1 — TITLE ============ -->
+<div class="slide" data-canvas-width="1920" data-canvas-height="1080">
+  <div class="topbar"><span class="brand">聞こゆ · <b>kikoyu</b></span><span class="pagenum"><em>01</em> / 06</span></div>
+  <div class="rule"></div>
+
+  <div style="margin-top:150px;">
+    <div class="kicker">Local speech · transcription + diarization</div>
+    <div class="title">音声を<span class="hl">文字起こし</span>し、<br><span class="hl">話者ごと</span>に分けて取り出す</div>
+    <p class="lead" style="margin-top:36px; max-width:1180px;">
+      whisper-large-v3 ＋ pyannote を <b style="color:var(--text)">ローカル完結</b>で実行。<br>
+      「<span style="color:var(--text)">誰が・いつ・何を</span>」言ったかを <span style="font-family:var(--mono); color:var(--amber)">[HH:MM:SS] SPEAKER_XX:</span> 形式で出力します。
+    </p>
+    <div style="margin-top:46px; display:flex; gap:16px; flex-wrap:wrap;">
+      <span class="tag">whisper-large-v3</span>
+      <span class="tag blue">pyannote diarization</span>
+      <span class="tag amber">DGX Spark · Blackwell sm_121 / CUDA 13</span>
+    </div>
+  </div>
+
+  <svg class="wave" width="560" height="180" viewBox="0 0 560 180" fill="none">
+    <g stroke="#57d6a0" stroke-width="6" stroke-linecap="round" opacity="0.85">
+      <line x1="20"  y1="90" x2="20"  y2="90"/>
+      <line x1="55"  y1="64" x2="55"  y2="116"/>
+      <line x1="90"  y1="40" x2="90"  y2="140"/>
+      <line x1="125" y1="74" x2="125" y2="106"/>
+      <line x1="160" y1="20" x2="160" y2="160"/>
+      <line x1="195" y1="58" x2="195" y2="122"/>
+    </g>
+    <g stroke="#f4a259" stroke-width="6" stroke-linecap="round" opacity="0.85">
+      <line x1="230" y1="50" x2="230" y2="130"/>
+      <line x1="265" y1="30" x2="265" y2="150"/>
+      <line x1="300" y1="70" x2="300" y2="110"/>
+      <line x1="335" y1="44" x2="335" y2="136"/>
+    </g>
+    <g stroke="#6cb6ff" stroke-width="6" stroke-linecap="round" opacity="0.85">
+      <line x1="370" y1="60" x2="370" y2="120"/>
+      <line x1="405" y1="34" x2="405" y2="146"/>
+      <line x1="440" y1="78" x2="440" y2="102"/>
+      <line x1="475" y1="26" x2="475" y2="154"/>
+      <line x1="510" y1="66" x2="510" y2="114"/>
+      <line x1="540" y1="84" x2="540" y2="96"/>
+    </g>
+  </svg>
+
+  <div class="footer"><span>ライブデモ</span><span>kikoyu · 聞こゆ = 「聞こえる/耳に届く」(古語)</span></div>
+</div>
+
+<!-- ============ SLIDE 2 — WHAT IT DOES ============ -->
+<div class="slide" data-canvas-width="1920" data-canvas-height="1080">
+  <div class="topbar"><span class="brand">聞こゆ · <b>kikoyu</b></span><span class="pagenum"><em>02</em> / 06</span></div>
+  <div class="rule"></div>
+
+  <div style="margin-top:78px;">
+    <div class="kicker">What it does</div>
+    <div class="title" style="font-size:62px;">会議録音から「<span class="hl">誰が何を</span>」を取り出す</div>
+  </div>
+
+  <div class="content">
+    <div class="grid" style="grid-template-columns: repeat(3, 1fr);">
+      <div class="card">
+        <span class="ic">🗣️</span>
+        <h3>日本語の文字起こし</h3>
+        <p>whisper-large-v3 を <span style="font-family:var(--mono);color:var(--mint)">bf16</span> で実行。<br><span style="font-family:var(--mono);color:var(--mint)">language="ja"</span> 前提で精度を確保。</p>
+      </div>
+      <div class="card">
+        <span class="ic">👥</span>
+        <h3>話者分離 (diarization)</h3>
+        <p>pyannote が<b style="color:var(--text)">声質</b>で話者を判定し、各区間に <span style="font-family:var(--mono);color:var(--amber)">SPEAKER_00/01…</span> を付与。</p>
+      </div>
+      <div class="card">
+        <span class="ic">🔒</span>
+        <h3>ローカル完結</h3>
+        <p>音声・文字起こし・実名は<b style="color:var(--text)">クラウドに送らない</b>。録音や出力はリポジトリにも残さない。</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:30px; background:var(--panel-2);">
+      <p style="font-size:25px;">
+        <span style="color:var(--text);font-weight:700;">出力ファイル (<span style="font-family:var(--mono)">out/</span>):</span>
+        <span style="font-family:var(--mono);color:var(--mint);">_segments.json</span> /
+        <span style="font-family:var(--mono);color:var(--mint);">_transcript.txt</span> /
+        <span style="font-family:var(--mono);color:var(--amber);">_segments_speaker.json</span> /
+        <span style="font-family:var(--mono);color:var(--amber);">_transcript_speaker.txt</span>
+      </p>
+    </div>
+  </div>
+
+  <div class="footer"><span>02 — 概要</span><span>transcription + speaker diarization, fully local</span></div>
+</div>
+
+<!-- ============ SLIDE 3 — PIPELINE ============ -->
+<div class="slide" data-canvas-width="1920" data-canvas-height="1080">
+  <div class="topbar"><span class="brand">聞こゆ · <b>kikoyu</b></span><span class="pagenum"><em>03</em> / 06</span></div>
+  <div class="rule"></div>
+
+  <div style="margin-top:78px;">
+    <div class="kicker">Pipeline</div>
+    <div class="title" style="font-size:62px;">音声 → テキスト → <span class="hl">話者ラベル</span></div>
+  </div>
+
+  <div class="content">
+    <div class="pipe" style="margin-top:40px;">
+      <div class="stage">
+        <div class="n">INPUT</div><h4>音声ファイル</h4><small>.m4a / .wav</small>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="n">STEP 1</div><h4>文字起こし</h4><small>whisper-large-v3<br>bf16 · ja</small>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="n">STEP 2 (任意)</div><h4>単語アライメント</h4><small>word-level<br>timestamps</small>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="n">STEP 3</div><h4>話者分離</h4><small>pyannote<br>3.1 / seg-3.0</small>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage" style="border-color:rgba(244,162,89,0.4);">
+        <div class="n" style="color:var(--amber)">OUTPUT</div><h4>誰が・いつ・何を</h4><small style="color:var(--amber)">[HH:MM:SS]<br>SPEAKER_XX:</small>
+      </div>
+    </div>
+
+    <div class="grid" style="grid-template-columns: 1fr 1fr; margin-top:48px;">
+      <div class="card">
+        <h3>💾 resume パス</h3>
+        <p>文字起こし結果を <span style="font-family:var(--mono);color:var(--mint)">segments.json</span> に保存しておけば、<br><b style="color:var(--text)">話者分離だけを後からやり直せる</b>（重い文字起こしを再実行しない）。</p>
+      </div>
+      <div class="card">
+        <h3>🔑 gated モデル</h3>
+        <p>pyannote の <span style="font-family:var(--mono);color:var(--blue)">speaker-diarization-3.1</span> 等は<br>HuggingFace の利用規約同意＋自分のトークンが必要。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer"><span>03 — パイプライン</span><span>transformers.pipeline + pyannote-audio</span></div>
+</div>
+
+<!-- ============ SLIDE 4 — BLACKWELL TRICK ============ -->
+<div class="slide" data-canvas-width="1920" data-canvas-height="1080">
+  <div class="topbar"><span class="brand">聞こゆ · <b>kikoyu</b></span><span class="pagenum"><em>04</em> / 06</span></div>
+  <div class="rule"></div>
+
+  <div style="margin-top:78px;">
+    <div class="kicker" style="color:var(--amber)">The hard part</div>
+    <div class="title" style="font-size:62px;">なぜ DGX Spark で<span style="color:var(--amber)">「普通は動かない」</span>のか</div>
+  </div>
+
+  <div class="content">
+    <div class="grid" style="grid-template-columns: 1.15fr 1fr; align-items:start;">
+      <div>
+        <ul class="checks" style="margin-top:6px;">
+          <li>GB10 / Blackwell <span class="m">sm_121</span> · <span class="m">aarch64</span> · <span class="m">CUDA 13</span> という珍しい組み合わせ</li>
+          <li>多くのライブラリが <b>この compute capability を想定していない</b> → そのままでは動かない</li>
+          <li>対策：<b>PyTorch を monkey-patch</b> して capability を“詐称”（spoofing）</li>
+          <li><span class="m">Mekopa/whisperx-blackwell</span> コンテナで実行環境を固める</li>
+        </ul>
+      </div>
+      <div class="card" style="border-color:rgba(244,162,89,0.35);">
+        <h3 style="color:var(--amber)">⚠️ このリポジトリの立ち位置</h3>
+        <p style="margin-bottom:18px;">普通の <b style="color:var(--text)">x86 + CUDA 12</b> なら、素の <span style="font-family:var(--mono);color:var(--blue)">WhisperX</span> がそのまま動くので<b style="color:var(--text)">これは不要</b>。</p>
+        <p>kikoyu が提供するのは、<b style="color:var(--text)">DGX Spark という難物で WhisperX + pyannote を動かすための、落とし穴を踏み抜いた“効く設定”</b>。</p>
+      </div>
+    </div>
+
+    <div class="code" style="margin-top:36px; font-size:24px; line-height:1.7;">
+      <span class="cm"># Cell 1 — 実行前に PyTorch を monkey-patch（capability spoofing）</span><br>
+      <span class="kw">import</span> torch  <span class="cm"># sm_121 を既知の capability として見せかけ、以降のロードを通す</span>
+    </div>
+  </div>
+
+  <div class="footer"><span>04 — 技術の肝</span><span>sm_121 + CUDA 13 + aarch64 — patched & containerized</span></div>
+</div>
+
+<!-- ============ SLIDE 5 — RTF & DEMO TRICK ============ -->
+<div class="slide" data-canvas-width="1920" data-canvas-height="1080">
+  <div class="topbar"><span class="brand">聞こゆ · <b>kikoyu</b></span><span class="pagenum"><em>05</em> / 06</span></div>
+  <div class="rule"></div>
+
+  <div style="margin-top:78px;">
+    <div class="kicker">Why this demo is short — by design</div>
+    <div class="title" style="font-size:60px;"><span class="hl">RTF ≒ 1.0</span> ＝ 録った尺と同じだけかかる</div>
+  </div>
+
+  <div class="content">
+    <p class="body" style="max-width:1500px; margin-top:6px;">
+      文字起こしは <b style="color:var(--text)">実時間とほぼ同じ</b>。60分の音声なら約60分。だからライブでは長尺は流せません。
+      そこで <b style="color:var(--text)">短く・即時・待ち時間を見せ場に</b> 組み立てます。
+    </p>
+
+    <div class="grid" style="grid-template-columns: repeat(2, 1fr); margin-top:40px;">
+      <div class="card">
+        <h3>🎙️ 60〜90秒だけ生録音</h3>
+        <p>会議参加者にその場で話してもらう。短尺が<b style="color:var(--text)">自然</b>で、同意・無害性も満たす。</p>
+      </div>
+      <div class="card">
+        <h3>🔥 カーネルをウォーム保持</h3>
+        <p>事前にモデルロードまで実行し、本番は<b style="color:var(--text)">推論セルだけ再実行</b>。待ちを最小化。</p>
+      </div>
+      <div class="card">
+        <h3>🗣️ 待ち時間 = 解説タイム</h3>
+        <p>処理が走る60〜90秒で sm_121 パッチや pyannote の仕組みを話す。</p>
+      </div>
+      <div class="card">
+        <h3>💾 resume で再利用</h3>
+        <p>保存済み JSON から<b style="color:var(--text)">話者分離だけ</b>を再実行する選択肢もある。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer"><span>05 — デモの工夫</span><span>short live capture · warm kernel · narrate the wait</span></div>
+</div>
+
+<!-- ============ SLIDE 6 — OUTPUT ============ -->
+<div class="slide" data-canvas-width="1920" data-canvas-height="1080">
+  <div class="topbar"><span class="brand">聞こゆ · <b>kikoyu</b></span><span class="pagenum"><em>06</em> / 06</span></div>
+  <div class="rule"></div>
+
+  <div style="margin-top:78px;">
+    <div class="kicker">Output</div>
+    <div class="title" style="font-size:62px;">3人で話せば、ラベルも<span class="hl">3つに割れる</span></div>
+  </div>
+
+  <div class="content">
+    <div class="timeline" style="margin-top:24px;">
+      <div class="track">
+        <span class="lab s0">SPEAKER_00</span>
+        <div class="bars">
+          <div class="seg s0" style="left:0%;  width:16%;"></div>
+          <div class="seg s0" style="left:40%; width:10%;"></div>
+          <div class="seg s0" style="left:78%; width:14%;"></div>
+        </div>
+      </div>
+      <div class="track">
+        <span class="lab s1">SPEAKER_01</span>
+        <div class="bars">
+          <div class="seg s1" style="left:18%; width:18%;"></div>
+          <div class="seg s1" style="left:64%; width:12%;"></div>
+        </div>
+      </div>
+      <div class="track">
+        <span class="lab s2">SPEAKER_02</span>
+        <div class="bars">
+          <div class="seg s2" style="left:51%; width:11%;"></div>
+          <div class="seg s2" style="left:93%; width:7%;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="axis"><span>00:00</span><span>00:30</span><span>01:00</span><span>01:30</span></div>
+
+    <div class="code" style="margin-top:34px;">
+      <span class="ts">[00:00:03]</span> <span class="c0">SPEAKER_00:</span> では始めましょうか。今日はデモの確認です。<br>
+      <span class="ts">[00:00:11]</span> <span class="c1">SPEAKER_01:</span> はい、よろしくお願いします。<br>
+      <span class="ts">[00:00:18]</span> <span class="c2">SPEAKER_02:</span> リモートからも聞こえています。<br>
+      <span class="ts">[00:00:25]</span> <span class="c0">SPEAKER_00:</span> では録音を回しますね。
+    </div>
+
+    <p class="body" style="margin-top:22px; font-size:23px;">
+      <span style="color:var(--faint);font-family:var(--mono);">※</span> 録音・<span style="font-family:var(--mono);color:var(--mint)">out/</span> の出力は <span style="font-family:var(--mono)">.gitignore</span> 済み。デモ後は clone フォルダごと削除可。
+    </p>
+  </div>
+
+  <div class="footer"><span>06 — 出力例</span><span>[HH:MM:SS] SPEAKER_XX: text</span></div>
+</div>
+
+</body>
+</html>
