@@ -10,16 +10,31 @@
 
 ## 0. 設計の核 (長尺問題への工夫)
 
-文字起こしは RTF ≒ 1.0 (音声と同じだけ時間がかかる) ため、長尺はライブでは待てません。
-そこで次の4点で「短尺・即時・待ち時間=見せ場」に組み立てます。
+### 実測値 (2026-06-23, DGX Spark GB10 / 3.13分の実音声で計測)
 
-1. **会議そのものから 60〜90 秒だけ生録音** — 短尺が不自然にならず、同意・無害性も自動的に満たす
-2. **カーネルをウォームに保つ** — 本番前のリハで「PyTorch パッチ〜モデルロード」までのセルを実行し、
-   **カーネルを生かしたまま**にする。本番は**推論セルだけ再実行**。ライブの待ちが実質 RTF (音声尺) ＋
-   話者分離だけに縮む
-3. **待ち時間 = 解説タイム** — 処理中に sm_121 パッチ / whisper-large-v3 / pyannote の話をして待ちを見せ場に
-4. **単一ファイル自動検出** — clone フォルダの古い音声を退避し、録音1ファイルだけ置けば
-   `AUDIO_FILE` 空でも自動検出される
+| 計測 | 時間 | RTF |
+| --- | --- | --- |
+| モデルロード (HFキャッシュ温) | 2.9 秒 | — |
+| 文字起こし **初回 COLD** (CUDAコンパイル込み) | 440 秒 | 2.34x |
+| 文字起こし **2回目 WARM (本番相当)** | 126 秒 | **0.67x** |
+| 話者分離 (pyannote) | 122 秒 | 約 0.65x |
+
+→ **遅さの正体は「初回1回限りの CUDA コンパイル (約+5分)」**。カーネルを温めれば文字起こしは
+RTF 0.67 (実時間より速い)。**90秒の録音なら本番のライブ処理は 文字起こし約60秒＋話者分離約60秒 ≒ 2分**。
+
+> 注: kikoyu は `transformers.pipeline` 版 whisper-large-v3 + `temperature` フォールバックを使う。
+> 雑音・かぶりの多い実音声ではチャンク単位で再デコードが走り RTF が膨らむことがある (クリーンな
+> 音声ほど速い)。旧記載の「RTF≒1.0」は実運用 (faster-whisper) 経路の数字。
+
+### 本番を成立させる4点
+
+1. **GPUを空ける (必須)** — 同じ Spark で ollama(swallow:70b≈45GB) 等が動いていると GPU を奪い合う。
+   デモ前に `ollama stop swallow:70b` (または `sudo systemctl stop ollama`) でアンロードし、デモ中は触らない。
+2. **会議そのものから 60〜90 秒だけ生録音** — 短尺が不自然にならず、同意・無害性も自動的に満たす
+3. **カーネルをウォームに保つ (必須)** — 本番前のリハで一度完走させ (この時に約5分のコンパイルを消化)、
+   **カーネルを生かしたまま**にする。本番は音声を差し替えて再実行 → 待ちが RTF 0.67 + 話者分離だけに縮む
+4. **待ち時間 = 解説タイム** — 処理中に sm_121 パッチ / whisper-large-v3 / pyannote の話をして待ちを見せ場に
+   (単一ファイル自動検出: clone 直下に音声1件なら `AUDIO_FILE` 空でも自動検出。複数あるなら `AUDIO_FILE` で明示)
 
 ---
 
@@ -96,3 +111,78 @@
 - デモ後はサンプルを消すなら clone フォルダごと削除してよい (実運用とは別物)
 - 固有名詞辞書 `prompts/initial_prompt.local.txt` はデモでは作らず、同梱の
   `initial_prompt.example.txt` のままにする
+
+---
+
+## 6. 運用メモ / トラブル対処 (2026-06-23 実機セットアップで判明)
+
+コマンドは実行する側を明記する: 🖥 = ローカル Mac / 🟢 = リモート DGX Spark (`ssh spark`)。
+
+### 6-1. 接続 (Tailscale 経由)
+
+- `~/.ssh/config` に `Host spark` 登録済み。**自宅/外出を問わず `ssh spark` で到達**
+  (LAN 内 `192.168.1.154` / 外出時 Tailscale `100.113.56.7` を自動で使い分け)。
+- NVIDIA Sync は**不要** (要件は SSH 到達性のみ)。別ネットワークからは Tailscale 等のトンネルが前提。
+
+### 6-2. 本番セットアップの実体 (デモ用に構築済み)
+
+実運用 `~/whisperx-work` には触れず、**別フォルダ `~/kikoyu-work`** で回す。
+
+- 🟢 clone: `git clone https://github.com/ogwata/kikoyu.git ~/kikoyu-work`
+- 🟢 `.env`: `cp ~/whisperx-work/.env ~/kikoyu-work/.env && chmod 600 ~/kikoyu-work/.env`
+  (HF トークンのキーは **`HF_whisperx`**。`HF_TOKEN` ではない)
+- 🟢 起動ラッパー `~/kikoyu-work/_demo_start.sh` を `tmux` で起動。要点は **HF キャッシュをマウント**する点
+  (setup.md の素の `docker run` はキャッシュ未マウントで毎回再DLになるため):
+
+  ```bash
+  docker run --rm --gpus all --ipc=host --ulimit memlock=-1 \
+    -p 8888:8888 \
+    -v "$PWD":/work -w /work \
+    -v "$HOME/.cache/huggingface":/root/.cache/huggingface \   # ← これが肝 (whisper/pyannote 永続)
+    --env-file .env --entrypoint bash \
+    mekopa/whisperx-blackwell:latest \
+    -lc "pip install -q jupyterlab ipywidgets && jupyter lab --ip=0.0.0.0 --port=8888 \
+         --no-browser --allow-root --ServerApp.token='' --ServerApp.password='' \
+         --ServerApp.disable_check_xsrf=True --ServerApp.root_dir=/work"
+  ```
+- 🟢 tmux: `tmux new -d -s kikoyu '~/kikoyu-work/_demo_start.sh 2>&1 | tee ~/kikoyu-work/_demo_jupyter.log'`
+  (SSH が切れてもコンテナは生存。確認は `tmux attach -t kikoyu`、離脱は `Ctrl-b` → `d`)
+
+### 6-3. GPU を空ける (本番前に必須)
+
+同じ Spark で **ollama (`swallow:70b` ≈ 45GB)** や別プロジェクトが GPU を占有していると遅くなる。
+
+- 🟢 ロード中モデルの確認: `ollama ps`
+- 🟢 アンロード (sudo 不要): `ollama stop swallow:70b`
+- 🟢 サービスごと止めるなら: `sudo systemctl stop ollama` (要パスワード)
+- 🟢 占有確認: `nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader`
+- ⚠️ **GB10 は `nvidia-smi` のテレメトリが不完全**。GPU使用率が `0 %`、メモリが `[N/A]` と出ても idle とは限らない。
+  稼働確認は「kernel が `State: R`」「`docker stats` の CPU%」「SM クロックのブースト」で見る。
+
+### 6-4. SSH トンネルが切れる (Server Connection Error)
+
+ブラウザの "Server Connection Error" / 画面下 "Connecting" は、**Jupyter 本体ではなく 🖥↔🟢 トンネルの一時切断**
+(Tailscale の経路貼り替え・会場ネットのゆらぎが誘因)。
+
+- **重要**: カーネルは 🟢 Spark 側 (tmux+コンテナ内) で動くので、**切れても実行中セルは止まらず `out/` に結果は残る**。
+  ブラウザは自動再接続。慌てない。
+- 🖥 **自動再接続トンネル** (素の `ssh -N -L ...` の代わりにこれを常用):
+
+  ```bash
+  while true; do
+    ssh -N -L 8888:localhost:8888 \
+      -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+      -o ExitOnForwardFailure=yes -o ConnectTimeout=10 spark
+    echo "$(date +%H:%M:%S) トンネル切断 → 再接続..."; sleep 2
+  done
+  ```
+- エラーダイアログは **Close**。本番前に "Do not show again" にチェックしておくと邪魔にならない。
+- 予備にスマホのテザリングを用意 (§4 と同じ)。
+
+### 6-5. その他
+
+- コンテナの `(unhealthy)` 表示は Docker ヘルスチェックの判定ズレで、**サーバは正常** (8888 応答中)。無視可。
+- ウォームアップ用のダミー音声は **🖥 macOS の `say` で合成**できる (マイク不要):
+  `say -v Kyoko -o a.aiff "…"` / `say -v Grandpa -o b.aiff "…"` を 🟢 側 `ffmpeg -f concat` で1ファイルに連結。
+  2話者でも話者分離はきれいに割れる (本番は生録音、これは温め・疎通用)。
+- 速度の実測根拠は §0 の表を参照。**初回 COLD は CUDA コンパイルで約+5分**、温めた **2回目 WARM が RTF 0.67**。
