@@ -20,7 +20,7 @@
 
 ## できること
 
-- whisper-large-v3 による日本語の文字起こし（`transformers.pipeline` + bf16）
+- whisper-large-v3 による日本語の文字起こし（`faster-whisper`／CTranslate2、コンテナ同梱版で動作確認済み。ノートブックに残した `transformers.pipeline` 版より実測で約3.4倍高速）
 - pyannote による話者分離（`SPEAKER_00`, `SPEAKER_01`, … のラベル付与）
 - 単語単位タイムスタンプのアラインメント（任意）
 - 文字起こしを JSON 保存しておき、話者分離だけ後からやり直す「再開ルート」

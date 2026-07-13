@@ -19,7 +19,7 @@ The name `kikoyu` (聞こゆ, classical Japanese for "to be heard / to reach the
 
 ## What it does
 
-- Japanese transcription with whisper-large-v3 (`transformers.pipeline` + bf16)
+- Japanese transcription with whisper-large-v3 via `faster-whisper` (CTranslate2, bundled in the container; measured ~3.4x faster than the `transformers.pipeline` fallback also included in the notebook)
 - Speaker diarization with pyannote (labels each segment `SPEAKER_00`, `SPEAKER_01`, …)
 - Optional word-level timestamp alignment
 - A "resume" path: save the transcript as JSON and redo only the diarization later
