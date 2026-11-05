@@ -1,5 +1,9 @@
 # kikoyu — 開発規約
 
+## 共通指示・共有メモリ・ハンドオフの入口
+
+- 着手時に `/Users/ogwata/dev/oboe/global/AGENTS.md`、`/Users/ogwata/dev/AGENTS.md`、`/Users/ogwata/dev/LLM/AGENTS.md`、`.clinerules/01-記憶.md`、`.agents/memory/MEMORY.md`、`/Users/ogwata/dev/oboe/handoffs/INDEX.md` を確認する。
+
 ## 非互換・既知の制約に関する記述ルール
 
 このノートブック(および派生: kikoyu-ORG, kikoyu-Booko)で「Xは動かない」「XはYと非互換」
